@@ -14,13 +14,25 @@ class DashboardController extends Controller
         $totalInventaris = Inventaris::count();
         $totalKategori = Kategori::count();
         $totalKondisi = Kondisi::count();
+        $totalStock = Inventaris::sum('jumlah');
 
-        // Statistik kondisi
-        $kondisiStats = Kondisi::withCount('inventaris')->get();
+        $kondisiStats = Kondisi::withCount('inventaris')->orderBy('nama')->get();
+        $categoryStats = Kategori::withCount('inventaris')->orderBy('nama')->get();
+        $stockByCategory = Kategori::withSum('inventaris', 'jumlah')->orderBy('nama')->get();
+        $monthlyAcquisitions = Inventaris::selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count')
+            ->groupBy('year', 'month')
+            ->orderBy('year')
+            ->orderBy('month')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'month' => \DateTime::createFromFormat('!m', $row->month)->format('M'),
+                    'year' => $row->year,
+                    'count' => $row->count,
+                ];
+            });
 
-        // 5 barang terbaru (dengan kondisi yang valid)
         $barangTerbaru = Inventaris::with('kategori', 'kondisi')
-            ->whereNotNull('kondisi_id')
             ->latest('created_at')
             ->limit(5)
             ->get();
@@ -29,7 +41,11 @@ class DashboardController extends Controller
             'totalInventaris',
             'totalKategori',
             'totalKondisi',
+            'totalStock',
             'kondisiStats',
+            'categoryStats',
+            'stockByCategory',
+            'monthlyAcquisitions',
             'barangTerbaru'
         ));
     }
